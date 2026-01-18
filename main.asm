@@ -240,7 +240,7 @@ CheckBIOS:
 ; VRAM sub-structure to store CRC32 result
 CRC32Struct:
 	.dbyt $20b0
-	encode_length INC1, COPY, CRC32Length
+	encode_length INC1, COPY, 8
 	
 	define_string CRC32, "FFFFFFFF"
 	
