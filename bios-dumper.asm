@@ -116,7 +116,7 @@ FILE_COUNT = 5
 .import __FILE4_DAT_SIZE__
 .import __FILE4_DAT_RUN__
 .byte $03
-.byte 4,$FF
+.byte 4,4
 .byte "DISKSYS0"
 .word __FILE4_DAT_RUN__
 .word __FILE4_DAT_SIZE__
