@@ -141,18 +141,68 @@ InitNametable:
 		ldy #$00
 		jmp VRAMFill
 
-NumToChars:												; converts A into hex chars and puts them in X/Y
-		pha
-		and #$0f
-		tay
-		lda NybbleToChar,y
-		tay
-		pla
-		lsr
-		lsr
-		lsr
-		lsr
-		tax
+; Print the error message and wait for an inserted disk before retrying
+PrintError:
+	jsr NumToChars
+	stx ErrorNum
+	sty ErrorNum+1
+	vram_string $2195, ErrorMsg, ErrorMsgLength
+	vram_string $2195+ErrorMsgLength, ErrorNum, ErrorNumLength
+
+	; A contains the numeric error code (preserved across NumToChars)
+	cmp #$01
+	beq PE_NoDisk
+	cmp #$02
+	beq PE_WriteProt
+	cmp #$03
+	beq PE_DiskFull
+	cmp #$04
+	beq PE_CRC
+	cmp #$05
+	beq PE_HW
+	jmp PE_Unknown
+
+PE_NoDisk:
+	vram_string $21a1, ErrorNoDisk, ErrorNoDiskLength
+	jmp PE_AfterMsg
+PE_WriteProt:
+	vram_string $21a1, ErrorWriteProt, ErrorWriteProtLength
+	jmp PE_AfterMsg
+PE_DiskFull:
+	vram_string $21a1, ErrorDiskFull, ErrorDiskFullLength
+	jmp PE_AfterMsg
+PE_CRC:
+	vram_string $21a1, ErrorCRC, ErrorCRCLength
+	jmp PE_AfterMsg
+PE_HW:
+	vram_string $21a1, ErrorHW, ErrorHWLength
+	jmp PE_AfterMsg
+PE_Unknown:
+	vram_string $21a1, ErrorUnknown, ErrorUnknownLength
+
+PE_AfterMsg:
+	sta StringStatus                                ; save status to check later
+	lda #$01                                        ; queue VRAM transfer for next NMI
+	sta NeedDraw
+	jsr EnableNMI                                  ; but enable NMI first
+	jsr WaitForNMI
+
+SideError:
+	lda FDS_DRIVE_STATUS
+	and #$01
+	beq SideError                                   ; wait until disk is ejected
+
+Insert:
+	lda FDS_DRIVE_STATUS
+	and #$01
+	bne Insert                                      ; wait until disk is inserted
+        
+	vram_string $2195, BlankMsg, BlankMsgLength     ; clear error message
+	sta StringStatus                                ; save status to check later
+	lda #$01                                        ; queue VRAM transfer for next NMI
+	sta NeedDraw
+	jsr WaitForNMI
+	jmp DumpBIOS                                    ; then retry the file write
 		lda NybbleToChar,x
 		tax
 		rts
@@ -448,6 +498,12 @@ Strings:
 	define_string BlankMsg, "              "
 	define_string ErrorMsg, "Err. "
 	define_string ErrorNum, "00"
+	define_string ErrorNoDisk, "No Disk"
+	define_string ErrorWriteProt, "Write Prot"
+	define_string ErrorDiskFull, "Disk Full"
+	define_string ErrorCRC, "CRC Err"
+	define_string ErrorHW, "HW Err"
+	define_string ErrorUnknown, "Unknown"
 	define_string SuccessMsg, "OK!"
 
 ; VRAM transfer structure
